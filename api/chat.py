@@ -96,20 +96,26 @@ class handler(BaseHTTPRequestHandler):
 
             provider = payload.pop("provider", "anthropic")
 
-            if provider not in PROVIDERS:
+            if provider == "custom":
+                api_key = payload.pop("custom_key", "").strip()
+                api_url = payload.pop("custom_url", "").strip()
+                if not api_key or not api_url:
+                    self._error(400, "自定义模式需要提供 API Key 和 Endpoint URL")
+                    return
+                result = call_openai_compat(api_key, api_url, payload)
+            elif provider not in PROVIDERS:
                 self._error(400, f"不支持的模型厂商: {provider}")
                 return
-
-            cfg = PROVIDERS[provider]
-            api_key = os.environ.get(cfg["key_env"], "")
-            if not api_key:
-                self._error(500, f"未配置环境变量: {cfg['key_env']}，请在 Vercel 中添加")
-                return
-
-            if provider == "anthropic":
-                result = call_anthropic(api_key, payload)
             else:
-                result = call_openai_compat(api_key, cfg["url"], payload)
+                cfg = PROVIDERS[provider]
+                api_key = os.environ.get(cfg["key_env"], "")
+                if not api_key:
+                    self._error(500, f"未配置环境变量: {cfg['key_env']}，请在 Vercel 中添加")
+                    return
+                if provider == "anthropic":
+                    result = call_anthropic(api_key, payload)
+                else:
+                    result = call_openai_compat(api_key, cfg["url"], payload)
 
             self.send_response(200)
             self._set_cors()

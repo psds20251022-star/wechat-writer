@@ -121,8 +121,17 @@ textarea { min-height: 80px; }
       <button class="model-tab" onclick="setProvider('deepseek', this)">DeepSeek</button>
       <button class="model-tab" onclick="setProvider('qwen', this)">通义千问</button>
       <button class="model-tab" onclick="setProvider('glm', this)">智谱 GLM</button>
+      <button class="model-tab" onclick="setProvider('custom', this)">⚙️ 自定义</button>
     </div>
     <select id="modelSelect" onchange="setModel(this.value)"></select>
+    <div id="customProviderFields" style="display:none; width:100%; margin-top:8px">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px">
+        <input type="text" id="customModel" placeholder="模型 ID，如 gpt-4o、gemini-2.0-flash" style="font-size:13px; padding:6px 10px">
+        <input type="text" id="customUrl" placeholder="Endpoint URL，如 https://api.openai.com/v1/chat/completions" style="font-size:13px; padding:6px 10px">
+      </div>
+      <input type="password" id="customKey" placeholder="API Key（仅保存在本地浏览器，不会上传到服务器）" style="font-size:13px; padding:6px 10px; width:100%">
+      <div style="font-size:11px; color:var(--text3); margin-top:5px">支持任意 OpenAI 兼容接口 · OpenAI / Gemini / Moonshot / Groq / 本地 Ollama 等 · 填写后自动保存</div>
+    </div>
   </div>
 
   <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:16%"></div></div>
@@ -360,39 +369,48 @@ const MODELS = {
   anthropic: {
     label: 'Claude',
     list: [
-      { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4' },
-      { id: 'claude-opus-4-20250514',   name: 'Claude Opus 4（最强）' },
+      { id: 'claude-sonnet-4-6',        name: 'Claude Sonnet 4.6（推荐）' },
+      { id: 'claude-opus-4-6',          name: 'Claude Opus 4.6（最强）' },
       { id: 'claude-haiku-4-5-20251001',name: 'Claude Haiku 4.5（快）' },
     ]
   },
   deepseek: {
     label: 'DeepSeek',
     list: [
-      { id: 'deepseek-chat',     name: 'DeepSeek V3' },
-      { id: 'deepseek-reasoner', name: 'DeepSeek R1（推理）' },
+      { id: 'deepseek-chat',     name: 'DeepSeek V3（推荐）' },
+      { id: 'deepseek-reasoner', name: 'DeepSeek R1（深度推理）' },
     ]
   },
   qwen: {
     label: '通义千问',
     list: [
-      { id: 'qwen-max',   name: 'Qwen Max（最强）' },
-      { id: 'qwen-plus',  name: 'Qwen Plus（均衡）' },
-      { id: 'qwen-turbo', name: 'Qwen Turbo（快）' },
+      { id: 'qwen3.6-plus',    name: 'Qwen3.6 Plus（最新旗舰）' },
+      { id: 'qwen3.6-max',     name: 'Qwen3.6 Max（最强）' },
+      { id: 'qwen3.6-flash',   name: 'Qwen3.6 Flash（快）' },
+      { id: 'qwen3-max',       name: 'Qwen3 Max（稳定）' },
+      { id: 'qwen3-235b-a22b', name: 'Qwen3-235B（开源）' },
+      { id: 'qwen-turbo',      name: 'Qwen Turbo（省钱）' },
     ]
   },
   glm: {
     label: '智谱 GLM',
     list: [
-      { id: 'glm-4',       name: 'GLM-4' },
-      { id: 'glm-4-air',   name: 'GLM-4 Air（快）' },
-      { id: 'glm-4-flash', name: 'GLM-4 Flash（免费）' },
+      { id: 'glm-5.1',        name: 'GLM-5.1（最新旗舰）' },
+      { id: 'glm-5',          name: 'GLM-5（高智能）' },
+      { id: 'glm-5-turbo',    name: 'GLM-5 Turbo（龙虾增强）' },
+      { id: 'glm-4.7',        name: 'GLM-4.7（均衡稳定）' },
+      { id: 'glm-4.7-flashx', name: 'GLM-4.7 FlashX（轻量高速）' },
+      { id: 'glm-4.6',        name: 'GLM-4.6（超强性能）' },
+      { id: 'glm-4.5-air',    name: 'GLM-4.5 Air（高性价比）' },
+      { id: 'glm-4-long',     name: 'GLM-4 Long（1M超长上下文）' },
+      { id: 'glm-4.7-flash',  name: 'GLM-4.7 Flash（免费）' },
     ]
   }
 };
 
 const state = {
   provider: 'anthropic',
-  model: 'claude-sonnet-4-20250514',
+  model: 'claude-sonnet-4-6',
   config: {},
   selectedTopic: '',
   topics: []
@@ -403,15 +421,49 @@ function setProvider(provider, tabEl) {
   state.provider = provider;
   document.querySelectorAll('.model-tab').forEach(t => t.classList.remove('active'));
   if (tabEl) tabEl.classList.add('active');
+
   const sel = document.getElementById('modelSelect');
-  sel.innerHTML = MODELS[provider].list.map(m =>
-    `<option value="${m.id}">${m.name}</option>`
-  ).join('');
-  state.model = MODELS[provider].list[0].id;
-  sel.value = state.model;
+  const customFields = document.getElementById('customProviderFields');
+
+  if (provider === 'custom') {
+    sel.style.display = 'none';
+    customFields.style.display = 'block';
+    // 恢复上次保存的内容
+    const saved = JSON.parse(localStorage.getItem('customProvider') || '{}');
+    document.getElementById('customModel').value = saved.model || '';
+    document.getElementById('customUrl').value   = saved.url   || '';
+    document.getElementById('customKey').value   = saved.key   || '';
+    state.customModel = saved.model || '';
+    state.customUrl   = saved.url   || '';
+    state.customKey   = saved.key   || '';
+  } else {
+    sel.style.display = '';
+    customFields.style.display = 'none';
+    sel.innerHTML = MODELS[provider].list.map(m =>
+      `<option value="${m.id}">${m.name}</option>`
+    ).join('');
+    state.model = MODELS[provider].list[0].id;
+    sel.value = state.model;
+  }
 }
 function setModel(id) { state.model = id; }
+
+function saveCustomField(field, val) {
+  if (field === 'model') state.customModel = val;
+  if (field === 'url')   state.customUrl   = val;
+  if (field === 'key')   state.customKey   = val;
+  const saved = JSON.parse(localStorage.getItem('customProvider') || '{}');
+  saved[field] = val;
+  localStorage.setItem('customProvider', JSON.stringify(saved));
+}
 setProvider('anthropic', null); // 初始化
+
+// 自定义字段实时保存
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('customModel')?.addEventListener('input', e => saveCustomField('model', e.target.value));
+  document.getElementById('customUrl')?.addEventListener('input',   e => saveCustomField('url',   e.target.value));
+  document.getElementById('customKey')?.addEventListener('input',   e => saveCustomField('key',   e.target.value));
+});
 
 // ── 步骤导航 ────────────────────────────────────────────────
 const PROGRESS = [16, 32, 48, 64, 80, 100];
@@ -561,15 +613,17 @@ async function callAPI(prompt, maxTokens = 1000) {
     ? `写作时请严格复现以下风格特征（这是从范文中提炼的）：${c.style}`
     : `写作风格：${c.style||'干货实用'}`;
   const sys = `你是一位顶级微信公众号写作专家。账号定位：${c.niche||'通用'}，目标读者：${c.audience||'大众'}，${styleInstruction}。请严格按照指令输出，不要有多余说明。`;
+  const isCustom = state.provider === 'custom';
   const resp = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      provider: state.provider,
-      model: state.model,
+      provider:   state.provider,
+      model:      isCustom ? (state.customModel || '') : state.model,
       max_tokens: maxTokens,
-      system: sys,
-      messages: [{ role: 'user', content: prompt }]
+      system:     sys,
+      messages:   [{ role: 'user', content: prompt }],
+      ...(isCustom ? { custom_url: state.customUrl, custom_key: state.customKey } : {})
     })
   });
   if (!resp.ok) {
