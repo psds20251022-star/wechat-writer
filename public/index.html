@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>公众号 AI 写作助手</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #ffffff; --bg2: #f7f7f5; --bg3: #f0efeb;
+  --text: #1a1a1a; --text2: #6b6b6b; --text3: #aaaaaa;
+  --border: rgba(0,0,0,0.1); --border2: rgba(0,0,0,0.18);
+  --radius: 8px; --radius-lg: 12px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1c1e; --bg2: #2c2c2e; --bg3: #3a3a3c;
+    --text: #f2f2f7; --text2: #aeaeb2; --text3: #636366;
+    --border: rgba(255,255,255,0.1); --border2: rgba(255,255,255,0.2);
+  }
+}
+body { font-family: -apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif; background: var(--bg3); color: var(--text); min-height: 100vh; padding: 1.5rem 1rem 3rem; }
+.container { max-width: 720px; margin: 0 auto; }
+
+/* ── 顶部 ── */
+.header { text-align: center; margin-bottom: 1.25rem; }
+.header h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+.header p { font-size: 13px; color: var(--text2); }
+
+/* ── 模型选择栏 ── */
+.model-bar { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 12px 16px; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.model-bar-label { font-size: 12px; color: var(--text2); white-space: nowrap; }
+.model-tabs { display: flex; gap: 4px; flex-wrap: wrap; flex: 1; }
+.model-tab { padding: 5px 14px; border-radius: 20px; border: 1px solid var(--border2); background: var(--bg2); font-size: 12px; cursor: pointer; color: var(--text2); transition: all 0.15s; font-family: inherit; white-space: nowrap; }
+.model-tab.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+.model-select { border: 1px solid var(--border2); border-radius: var(--radius); padding: 5px 10px; font-size: 13px; font-family: inherit; background: var(--bg2); color: var(--text); outline: none; cursor: pointer; }
+.model-badge { font-size: 10px; padding: 2px 6px; border-radius: 8px; background: rgba(52,199,89,0.15); color: #1a7a3a; margin-left: 4px; white-space: nowrap; }
+@media (prefers-color-scheme: dark) { .model-badge { background: rgba(52,199,89,0.2); color: #4cd964; } }
+
+/* ── 步骤导航 ── */
+.steps-nav { display: flex; gap: 4px; margin-bottom: 1.25rem; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+.steps-nav::-webkit-scrollbar { display: none; }
+.step-btn { flex-shrink: 0; padding: 7px 15px; border-radius: 20px; border: 1px solid var(--border2); background: var(--bg); font-size: 13px; cursor: pointer; color: var(--text2); transition: all 0.15s; white-space: nowrap; font-family: inherit; }
+.step-btn.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+.step-btn.done { color: var(--text); }
+.step-btn:hover:not(.active) { background: var(--bg2); }
+
+.progress-bar { height: 3px; background: var(--border); border-radius: 2px; margin-bottom: 1.25rem; }
+.progress-fill { height: 100%; background: var(--text); border-radius: 2px; transition: width 0.4s ease; }
+
+/* ── 面板 ── */
+.panel { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem; }
+.panel-title { font-size: 15px; font-weight: 600; margin-bottom: 1.25rem; }
+
+/* ── 表单 ── */
+.field-group { margin-bottom: 1rem; }
+.field-label { font-size: 12px; color: var(--text2); margin-bottom: 6px; display: block; }
+textarea, input, select { width: 100%; border: 1px solid var(--border2); border-radius: var(--radius); padding: 9px 12px; font-size: 14px; font-family: inherit; background: var(--bg2); color: var(--text); outline: none; resize: vertical; transition: border-color 0.15s; line-height: 1.6; }
+textarea:focus, input:focus, select:focus { border-color: var(--border2); background: var(--bg); box-shadow: 0 0 0 3px rgba(0,0,0,0.05); }
+textarea { min-height: 80px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 480px) { .row2 { grid-template-columns: 1fr; } }
+
+/* ── 按钮 ── */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: var(--radius); border: 1px solid var(--border2); background: var(--bg); color: var(--text); font-size: 13px; font-family: inherit; cursor: pointer; transition: all 0.15s; font-weight: 500; }
+.btn:hover { background: var(--bg2); }
+.btn:active { transform: scale(0.98); }
+.btn-primary { background: var(--text); color: var(--bg); border-color: var(--text); }
+.btn-primary:hover { opacity: 0.82; background: var(--text); }
+.btn-sm { padding: 6px 14px; font-size: 12px; }
+.btn-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 0.75rem; }
+.divider { height: 1px; background: var(--border); margin: 1.25rem 0; }
+
+/* ── 选题 ── */
+.topics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+@media (max-width: 480px) { .topics-grid { grid-template-columns: 1fr; } }
+.topic-item { padding: 10px 14px; border: 1px solid var(--border2); border-radius: var(--radius); font-size: 13px; cursor: pointer; background: var(--bg); transition: all 0.15s; line-height: 1.5; }
+.topic-item:hover { background: var(--bg2); }
+.topic-item.selected { border-color: var(--text); background: var(--bg2); font-weight: 500; }
+.topic-num { font-size: 11px; color: var(--text3); display: block; margin-bottom: 2px; }
+
+/* ── 标题列表 ── */
+.titles-list { display: flex; flex-direction: column; gap: 6px; }
+.title-item { padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 14px; cursor: pointer; background: var(--bg); transition: all 0.15s; display: flex; align-items: center; gap: 8px; line-height: 1.5; }
+.title-item:hover { border-color: var(--border2); background: var(--bg2); }
+.title-item.selected { border-color: var(--text); }
+.title-copy-btn { flex-shrink: 0; font-size: 11px; color: var(--text3); padding: 3px 8px; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer; font-family: inherit; }
+.title-copy-btn:hover { color: var(--text); }
+
+.section-label { font-size: 12px; color: var(--text2); margin-bottom: 8px; font-weight: 500; }
+.style-tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+.style-tab { padding: 5px 14px; border-radius: 20px; border: 1px solid var(--border2); background: var(--bg2); font-size: 12px; cursor: pointer; color: var(--text2); transition: all 0.15s; font-family: inherit; }
+.style-tab.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+/* 风格多选标签 */
+.style-tag-wrap { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.style-tag { padding: 5px 13px; border-radius: 20px; border: 1px solid var(--border2); background: var(--bg2); font-size: 13px; cursor: pointer; color: var(--text2); transition: all 0.15s; user-select: none; }
+.style-tag:hover { border-color: var(--border2); background: var(--bg); }
+.style-tag.selected { background: var(--text); color: var(--bg); border-color: var(--text); }
+.style-tag.custom { position: relative; padding-right: 26px; }
+.style-tag.custom::after { content: '×'; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 14px; opacity: 0.6; }
+.style-custom-row { display: flex; gap: 8px; align-items: center; }
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--text); border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.copy-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 8px 20px; border-radius: 20px; font-size: 13px; opacity: 0; transition: opacity 0.25s; pointer-events: none; z-index: 999; white-space: nowrap; }
+.copy-toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>✍️ 公众号 AI 写作助手</h1>
+    <p>从选题到标题，AI 全程陪你写</p>
+  </div>
+
+  <!-- 模型选择栏 -->
+  <div class="model-bar">
+    <span class="model-bar-label">当前模型</span>
+    <div class="model-tabs">
+      <button class="model-tab active" onclick="setProvider('anthropic', this)">Claude</button>
+      <button class="model-tab" onclick="setProvider('deepseek', this)">DeepSeek</button>
+      <button class="model-tab" onclick="setProvider('qwen', this)">通义千问</button>
+      <button class="model-tab" onclick="setProvider('glm', this)">智谱 GLM</button>
+    </div>
+    <select id="modelSelect" onchange="setModel(this.value)"></select>
+  </div>
+
+  <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:16%"></div></div>
+
+  <div class="steps-nav">
+    <button class="step-btn active" onclick="goStep(0)">① 账号设置</button>
+    <button class="step-btn" onclick="goStep(1)">② 选题灵感</button>
+    <button class="step-btn" onclick="goStep(2)">③ 文章大纲</button>
+    <button class="step-btn" onclick="goStep(3)">④ 正文撰写</button>
+    <button class="step-btn" onclick="goStep(4)">⑤ 润色优化</button>
+    <button class="step-btn" onclick="goStep(5)">⑥ 爆款标题</button>
+  </div>
+
+  <!-- Step 0 -->
+  <div id="step0" class="panel">
+    <div class="panel-title">配置你的账号</div>
+    <div class="row2">
+      <div class="field-group">
+        <label class="field-label">账号定位 / 垂类</label>
+        <input type="text" id="niche" placeholder="例：职场成长、育儿经验、健康饮食">
+      </div>
+      <div class="field-group">
+        <label class="field-label">目标读者</label>
+        <input type="text" id="audience" placeholder="例：25-35岁职场女性">
+      </div>
+    </div>
+    <div class="field-group">
+      <label class="field-label">写作风格</label>
+      <div class="style-tabs">
+        <button class="style-tab active" onclick="switchStyleMode('preset', this)">预设风格</button>
+        <button class="style-tab" onclick="switchStyleMode('clone', this)">📋 复现范文风格</button>
+      </div>
+      <!-- 预设风格（多选标签 + 自定义） -->
+      <div id="stylePreset">
+        <div class="style-tag-wrap" id="styleTagWrap">
+          <span class="style-tag" data-val="温暖治愈" onclick="toggleTag(this)">温暖治愈</span>
+          <span class="style-tag" data-val="干货实用" onclick="toggleTag(this)">干货实用</span>
+          <span class="style-tag" data-val="犀利深刻" onclick="toggleTag(this)">犀利深刻</span>
+          <span class="style-tag" data-val="轻松幽默" onclick="toggleTag(this)">轻松幽默</span>
+          <span class="style-tag" data-val="专业严谨" onclick="toggleTag(this)">专业严谨</span>
+          <span class="style-tag" data-val="故事叙事" onclick="toggleTag(this)">故事叙事</span>
+          <span class="style-tag" data-val="接地气口语化" onclick="toggleTag(this)">接地气口语化</span>
+          <span class="style-tag" data-val="有画面感" onclick="toggleTag(this)">有画面感</span>
+          <span class="style-tag" data-val="金句频出" onclick="toggleTag(this)">金句频出</span>
+          <span class="style-tag" data-val="短句为主" onclick="toggleTag(this)">短句为主</span>
+        </div>
+        <div class="style-custom-row">
+          <input type="text" id="styleCustomInput" placeholder="自定义风格标签，回车添加..." onkeydown="addCustomTag(event)" style="flex:1; min-width:0">
+          <button class="btn btn-sm" onclick="addCustomTag({key:'Enter'})">添加</button>
+        </div>
+        <div style="font-size:11px; color:var(--text3); margin-top:5px" id="styleSelectedHint">可多选，未选则默认「干货实用」</div>
+      </div>
+      <!-- 范文克隆 -->
+      <div id="styleClone" style="display:none">
+        <textarea id="sampleArticle" style="min-height:160px; font-size:13px; line-height:1.8" placeholder="粘贴一篇你喜欢的范文（建议 500 字以上，效果更好）..."></textarea>
+        <div class="btn-row" style="margin-top:6px">
+          <button class="btn btn-sm" onclick="analyzeStyle()">
+            <span id="styleSpinner" style="display:none" class="spinner"></span>
+            AI 分析风格
+          </button>
+          <span id="styleStatusText" style="font-size:12px; color:var(--text3)"></span>
+        </div>
+        <div id="styleResultBox" style="display:none; margin-top:10px">
+          <div class="field-label" style="margin-bottom:4px">提取到的风格描述（可手动修改）</div>
+          <textarea id="styleResult" style="min-height:80px; font-size:13px; line-height:1.7; border-color: rgba(52,199,89,0.5)"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="field-group">
+      <label class="field-label">近期热点 / 时事（可选）</label>
+      <input type="text" id="trend" placeholder="例：AI热、毕业季、双11...">
+    </div>
+    <div class="btn-row" style="margin-top:1.25rem">
+      <button class="btn btn-primary" onclick="saveConfig()">保存设置，开始创作 →</button>
+    </div>
+  </div>
+
+  <!-- Step 1 -->
+  <div id="step1" class="panel" style="display:none">
+    <div class="panel-title">选题灵感</div>
+    <div class="field-group">
+      <label class="field-label">选题方向（可留空，AI 自由发挥）</label>
+      <input type="text" id="topicHint" placeholder="例：人际关系、工作压力、副业变现...">
+    </div>
+    <div class="btn-row" style="margin-top:0">
+      <button class="btn btn-primary" onclick="genTopics()"><span id="topicSpinner" style="display:none" class="spinner"></span>生成 8 个选题</button>
+      <button class="btn btn-sm" onclick="genTopics()">换一批</button>
+    </div>
+    <div id="topicsOutput" style="display:none; margin-top:1.25rem">
+      <div class="section-label">点击选择你中意的选题 👇</div>
+      <div class="topics-grid" id="topicsGrid"></div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="useSelectedTopic()">用这个选题，生成大纲 →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2 -->
+  <div id="step2" class="panel" style="display:none">
+    <div class="panel-title">文章大纲</div>
+    <div class="field-group">
+      <label class="field-label">文章主题</label>
+      <input type="text" id="topicFinal" placeholder="输入你的选题...">
+    </div>
+    <div class="row2">
+      <div class="field-group">
+        <label class="field-label">文章类型</label>
+        <select id="articleType">
+          <option>经验分享 / 干货教程</option>
+          <option>观点评论 / 深度分析</option>
+          <option>故事叙事 / 情感共鸣</option>
+          <option>问题解决 / 实操指南</option>
+          <option>热点评述 / 时事解读</option>
+          <option>盘点合集 / 资源整理</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">目标字数</label>
+        <select id="wordCount">
+          <option value="800-1200字">800-1200字（轻量）</option>
+          <option value="1500-2000字" selected>1500-2000字（标准）</option>
+          <option value="2500-3500字">2500-3500字（深度）</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="genOutline()"><span id="outlineSpinner" style="display:none" class="spinner"></span>生成大纲</button>
+    <div id="outlineSection" style="display:none">
+      <div class="divider"></div>
+      <div class="section-label">生成的大纲（可直接编辑）</div>
+      <textarea style="min-height:200px" id="outlineOutput"></textarea>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="toStep3()">用这个大纲，生成正文 →</button>
+        <button class="btn btn-sm" onclick="genOutline()">重新生成</button>
+        <button class="btn btn-sm" onclick="copyEl('outlineOutput')">复制大纲</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3 -->
+  <div id="step3" class="panel" style="display:none">
+    <div class="panel-title">正文撰写</div>
+    <div class="field-group">
+      <label class="field-label">文章主题</label>
+      <input type="text" id="topicDraft" placeholder="文章主题...">
+    </div>
+    <div class="field-group">
+      <label class="field-label">大纲</label>
+      <textarea id="outlineDraft" style="min-height:100px" placeholder="粘贴或修改大纲内容..."></textarea>
+    </div>
+    <div class="field-group">
+      <label class="field-label">补充说明 / 个人案例（可选）</label>
+      <textarea id="extraContext" placeholder="例：我自己的经历是...、可以加入这个数据..."></textarea>
+    </div>
+    <button class="btn btn-primary" onclick="genDraft()"><span id="draftSpinner" style="display:none" class="spinner"></span>生成正文初稿</button>
+    <div id="draftSection" style="display:none">
+      <div class="divider"></div>
+      <div class="section-label">正文初稿（可直接编辑）</div>
+      <textarea id="draftOutput" style="min-height:320px; font-size:14px; line-height:1.9"></textarea>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="toStep4()">润色这篇文章 →</button>
+        <button class="btn btn-sm" onclick="copyEl('draftOutput')">复制全文</button>
+        <button class="btn btn-sm" onclick="genDraft()">重新生成</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 4 -->
+  <div id="step4" class="panel" style="display:none">
+    <div class="panel-title">润色优化</div>
+    <div class="field-group">
+      <label class="field-label">待润色的正文</label>
+      <textarea id="polishInput" style="min-height:220px; font-size:14px; line-height:1.9" placeholder="粘贴需要润色的文章..."></textarea>
+    </div>
+    <div class="field-group">
+      <label class="field-label">润色目标</label>
+      <select id="polishGoal">
+        <option value="全面润色，提升流畅度和可读性，增强情感共鸣">全面润色（推荐）</option>
+        <option value="优化开头，让前200字更有钩子感">加强开头钩子</option>
+        <option value="增加金句和共鸣点，让读者有转发欲">增加金句共鸣</option>
+        <option value="精简压缩，去掉废话，让表达更精炼有力">精简去废话</option>
+        <option value="增强故事感，让内容更生动有画面感">增强故事感</option>
+        <option value="优化结尾，加强号召力和互动引导">优化结尾</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" onclick="genPolish()"><span id="polishSpinner" style="display:none" class="spinner"></span>开始润色</button>
+    <div id="polishSection" style="display:none">
+      <div class="divider"></div>
+      <div class="section-label">润色后版本</div>
+      <textarea id="polishOutput" style="min-height:320px; font-size:14px; line-height:1.9"></textarea>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="toStep5()">生成爆款标题 →</button>
+        <button class="btn btn-sm" onclick="copyEl('polishOutput')">复制全文</button>
+        <button class="btn btn-sm" onclick="genPolish()">重新润色</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 5 -->
+  <div id="step5" class="panel" style="display:none">
+    <div class="panel-title">爆款标题生成</div>
+    <div class="field-group">
+      <label class="field-label">文章主题</label>
+      <input type="text" id="titleTopic" placeholder="文章主题...">
+    </div>
+    <div class="field-group">
+      <label class="field-label">内容摘要（可选，让标题更贴合正文）</label>
+      <textarea id="titleSummary" placeholder="简述文章主要内容，2-3句话即可..."></textarea>
+    </div>
+    <div class="field-group">
+      <label class="field-label">标题风格偏好</label>
+      <select id="titleStyle">
+        <option value="混合风格，包含悬念型、数字型、情绪共鸣型、提问型">混合风格（推荐）</option>
+        <option value="悬念型，制造好奇心">悬念型</option>
+        <option value="数字型，含具体数字">数字型</option>
+        <option value="情绪共鸣型，击中读者痛点">情绪共鸣型</option>
+        <option value="故事型，讲述具体场景">故事型</option>
+      </select>
+    </div>
+    <div class="btn-row" style="margin-top:0">
+      <button class="btn btn-primary" onclick="genTitles()"><span id="titleSpinner" style="display:none" class="spinner"></span>生成 10 个标题</button>
+      <button class="btn btn-sm" onclick="genTitles()">换一批</button>
+    </div>
+    <div id="titlesSection" style="display:none; margin-top:1.25rem">
+      <div class="section-label">点击复制你喜欢的标题 👇</div>
+      <div class="titles-list" id="titlesList"></div>
+    </div>
+  </div>
+</div>
+
+<div class="copy-toast" id="copyToast">已复制到剪贴板 ✓</div>
+
+<script>
+// ── 模型配置 ────────────────────────────────────────────────
+const MODELS = {
+  anthropic: {
+    label: 'Claude',
+    list: [
+      { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4' },
+      { id: 'claude-opus-4-20250514',   name: 'Claude Opus 4（最强）' },
+      { id: 'claude-haiku-4-5-20251001',name: 'Claude Haiku 4.5（快）' },
+    ]
+  },
+  deepseek: {
+    label: 'DeepSeek',
+    list: [
+      { id: 'deepseek-chat',     name: 'DeepSeek V3' },
+      { id: 'deepseek-reasoner', name: 'DeepSeek R1（推理）' },
+    ]
+  },
+  qwen: {
+    label: '通义千问',
+    list: [
+      { id: 'qwen-max',   name: 'Qwen Max（最强）' },
+      { id: 'qwen-plus',  name: 'Qwen Plus（均衡）' },
+      { id: 'qwen-turbo', name: 'Qwen Turbo（快）' },
+    ]
+  },
+  glm: {
+    label: '智谱 GLM',
+    list: [
+      { id: 'glm-4',       name: 'GLM-4' },
+      { id: 'glm-4-air',   name: 'GLM-4 Air（快）' },
+      { id: 'glm-4-flash', name: 'GLM-4 Flash（免费）' },
+    ]
+  }
+};
+
+const state = {
+  provider: 'anthropic',
+  model: 'claude-sonnet-4-20250514',
+  config: {},
+  selectedTopic: '',
+  topics: []
+};
+
+// 初始化模型下拉
+function setProvider(provider, tabEl) {
+  state.provider = provider;
+  document.querySelectorAll('.model-tab').forEach(t => t.classList.remove('active'));
+  if (tabEl) tabEl.classList.add('active');
+  const sel = document.getElementById('modelSelect');
+  sel.innerHTML = MODELS[provider].list.map(m =>
+    `<option value="${m.id}">${m.name}</option>`
+  ).join('');
+  state.model = MODELS[provider].list[0].id;
+  sel.value = state.model;
+}
+function setModel(id) { state.model = id; }
+setProvider('anthropic', null); // 初始化
+
+// ── 步骤导航 ────────────────────────────────────────────────
+const PROGRESS = [16, 32, 48, 64, 80, 100];
+function goStep(n) {
+  [0,1,2,3,4,5].forEach(i => {
+    document.getElementById('step'+i).style.display = i===n ? '' : 'none';
+    const btns = document.querySelectorAll('.step-btn');
+    btns[i].className = 'step-btn' + (i===n?' active': (i<n?' done':''));
+  });
+  document.getElementById('progressFill').style.width = PROGRESS[n]+'%';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+// ── 风格标签多选 ────────────────────────────────────────────
+function toggleTag(el) {
+  el.classList.toggle('selected');
+  updateStyleHint();
+}
+function updateStyleHint() {
+  const selected = getSelectedStyles();
+  const hint = document.getElementById('styleSelectedHint');
+  if (!hint) return;
+  hint.textContent = selected.length
+    ? '已选：' + selected.join(' · ')
+    : '可多选，未选则默认「干货实用」';
+}
+function getSelectedStyles() {
+  return [...document.querySelectorAll('.style-tag.selected')].map(t => t.dataset.val);
+}
+function addCustomTag(e) {
+  if (e.key !== 'Enter') return;
+  const input = document.getElementById('styleCustomInput');
+  const val = input.value.trim();
+  if (!val) return;
+  // 防重复
+  const existing = [...document.querySelectorAll('.style-tag')].find(t => t.dataset.val === val);
+  if (existing) { existing.classList.add('selected'); input.value = ''; updateStyleHint(); return; }
+  const wrap = document.getElementById('styleTagWrap');
+  const tag = document.createElement('span');
+  tag.className = 'style-tag custom selected';
+  tag.dataset.val = val;
+  tag.textContent = val;
+  tag.onclick = function() {
+    if (this.classList.contains('selected')) {
+      this.classList.remove('selected');
+      updateStyleHint();
+    } else {
+      this.remove();
+    }
+  };
+  wrap.appendChild(tag);
+  input.value = '';
+  updateStyleHint();
+}
+
+// ── 风格模式切换 ────────────────────────────────────────────
+let styleMode = 'preset'; // 'preset' | 'clone'
+function switchStyleMode(mode, tabEl) {
+  styleMode = mode;
+  document.querySelectorAll('.style-tab').forEach(t => t.classList.remove('active'));
+  tabEl.classList.add('active');
+  document.getElementById('stylePreset').style.display = mode === 'preset' ? '' : 'none';
+  document.getElementById('styleClone').style.display  = mode === 'clone'  ? '' : 'none';
+}
+
+async function analyzeStyle() {
+  const sample = document.getElementById('sampleArticle').value.trim();
+  if (sample.length < 100) { alert('请粘贴至少 100 字的范文'); return; }
+  spin('styleSpinner', true);
+  document.getElementById('styleStatusText').textContent = '分析中...';
+  document.getElementById('styleResultBox').style.display = 'none';
+  try {
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        provider: state.provider,
+        model: state.model,
+        max_tokens: 500,
+        system: '你是写作风格分析专家，擅长提炼文章的写作特征，输出简洁精准的风格描述，供后续写作参考。',
+        messages: [{
+          role: 'user',
+          content: `请分析以下文章的写作风格，从【语气与人称】【句式特点】【段落节奏】【用词偏好】【情感基调】五个维度提炼，输出一段150字以内的风格描述，直接给描述，不要标题和分点符号：\n\n${sample.slice(0, 2000)}`
+        }]
+      })
+    });
+    const data = await resp.json();
+    const result = data.content?.map(c => c.text||'').join('') || '';
+    document.getElementById('styleResult').value = result;
+    document.getElementById('styleResultBox').style.display = 'block';
+    document.getElementById('styleStatusText').textContent = '✓ 风格提取成功';
+  } catch(e) {
+    document.getElementById('styleStatusText').textContent = '分析失败，请重试';
+  }
+  spin('styleSpinner', false);
+}
+
+function saveConfig() {
+  let styleDesc = '';
+  if (styleMode === 'clone') {
+    styleDesc = document.getElementById('styleResult').value.trim();
+    if (!styleDesc) { alert('请先点击「AI 分析风格」提取范文风格'); return; }
+  } else {
+    const tags = getSelectedStyles();
+    styleDesc = tags.length ? tags.join('、') : '干货实用';
+  }
+  state.config = {
+    niche:    document.getElementById('niche').value || '通用',
+    audience: document.getElementById('audience').value || '大众读者',
+    style:    styleDesc,
+    styleMode: styleMode,
+    trend:    document.getElementById('trend').value,
+  };
+  goStep(1);
+}
+function toStep3() {
+  document.getElementById('topicDraft').value   = document.getElementById('topicFinal').value;
+  document.getElementById('outlineDraft').value = document.getElementById('outlineOutput').value;
+  goStep(3);
+}
+function toStep4() {
+  document.getElementById('polishInput').value = document.getElementById('draftOutput').value;
+  goStep(4);
+}
+function toStep5() {
+  document.getElementById('titleTopic').value =
+    document.getElementById('topicFinal').value || document.getElementById('topicDraft').value;
+  goStep(5);
+}
+
+// ── 工具函数 ────────────────────────────────────────────────
+function spin(id, on) { document.getElementById(id).style.display = on ? 'inline-block' : 'none'; }
+function copyEl(id) {
+  const v = document.getElementById(id).value;
+  navigator.clipboard.writeText(v).then(toast).catch(() => { document.getElementById(id).select(); document.execCommand('copy'); toast(); });
+}
+function toast() {
+  const t = document.getElementById('copyToast');
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+function clean(s) { return s.replace(/^[0-9.\s、""「」【】\-*#]+/, '').trim(); }
+
+// ── API 调用 ────────────────────────────────────────────────
+async function callAPI(prompt, maxTokens = 1000) {
+  const c = state.config;
+  const styleInstruction = c.styleMode === 'clone'
+    ? `写作时请严格复现以下风格特征（这是从范文中提炼的）：${c.style}`
+    : `写作风格：${c.style||'干货实用'}`;
+  const sys = `你是一位顶级微信公众号写作专家。账号定位：${c.niche||'通用'}，目标读者：${c.audience||'大众'}，${styleInstruction}。请严格按照指令输出，不要有多余说明。`;
+  const resp = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      provider: state.provider,
+      model: state.model,
+      max_tokens: maxTokens,
+      system: sys,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({ error: `HTTP ${resp.status}` }));
+    throw new Error(err.error || `HTTP ${resp.status}`);
+  }
+  const data = await resp.json();
+  return data.content?.map(c => c.text || '').join('') || '';
+}
+
+// ── 各步骤生成 ───────────────────────────────────────────────
+async function genTopics() {
+  const hint = document.getElementById('topicHint').value;
+  const trend = state.config.trend ? `，可结合近期热点：${state.config.trend}` : '';
+  spin('topicSpinner', true);
+  document.getElementById('topicsOutput').style.display = 'none';
+  try {
+    const res = await callAPI(
+      `请为公众号生成8个有吸引力的文章选题${hint ? '，方向偏向：'+hint : ''}${trend}。\n要求：每个选题一行，直接是标题风格（15字以内），只输出8行，不要编号，不要任何说明。`,
+      600
+    );
+    state.topics = res.split('\n').filter(l => l.trim()).slice(0, 8);
+    document.getElementById('topicsGrid').innerHTML = state.topics.map((t, i) =>
+      `<div class="topic-item" onclick="selectTopic(${i})" id="topic${i}"><span class="topic-num">选题 ${i+1}</span>${clean(t)}</div>`
+    ).join('');
+    document.getElementById('topicsOutput').style.display = 'block';
+  } catch(e) { alert('生成失败：' + e.message); }
+  spin('topicSpinner', false);
+}
+
+function selectTopic(i) {
+  document.querySelectorAll('.topic-item').forEach(el => el.classList.remove('selected'));
+  document.getElementById('topic'+i)?.classList.add('selected');
+  state.selectedTopic = clean(state.topics[i]);
+}
+function useSelectedTopic() {
+  if (!state.selectedTopic) { alert('请先选择一个选题'); return; }
+  document.getElementById('topicFinal').value = state.selectedTopic;
+  goStep(2);
+}
+
+async function genOutline() {
+  const topic = document.getElementById('topicFinal').value;
+  if (!topic) { alert('请输入文章主题'); return; }
+  spin('outlineSpinner', true);
+  try {
+    const res = await callAPI(
+      `为以下公众号文章生成详细大纲：\n主题：${topic}\n文章类型：${document.getElementById('articleType').value}\n目标字数：${document.getElementById('wordCount').value}\n\n要求：包含开头钩子策略、3-5个正文核心部分（小标题+说明）、结尾设计。格式用【】标注各部分，控制在350字以内。`,
+      800
+    );
+    document.getElementById('outlineOutput').value = res;
+    document.getElementById('outlineSection').style.display = 'block';
+  } catch(e) { alert('生成失败：' + e.message); }
+  spin('outlineSpinner', false);
+}
+
+async function genDraft() {
+  const topic = document.getElementById('topicDraft').value;
+  const outline = document.getElementById('outlineDraft').value;
+  if (!topic) { alert('请输入文章主题'); return; }
+  spin('draftSpinner', true);
+  document.getElementById('draftSection').style.display = 'none';
+  try {
+    const res = await callAPI(
+      `请根据以下信息撰写一篇完整的微信公众号正文：\n\n主题：${topic}\n${outline ? '大纲：\n'+outline+'\n' : ''}${document.getElementById('extraContext').value ? '补充：\n'+document.getElementById('extraContext').value+'\n' : ''}\n目标字数：${document.getElementById('wordCount')?.value || '1500-2000字'}\n\n要求：\n1. 开头前3句必须有强烈的钩子\n2. 段落3-5行，适合手机阅读\n3. 适当使用小标题\n4. 结尾有互动引导\n5. 直接输出正文，不要任何前言`,
+      4000
+    );
+    document.getElementById('draftOutput').value = res;
+    document.getElementById('draftSection').style.display = 'block';
+  } catch(e) { alert('生成失败：' + e.message); }
+  spin('draftSpinner', false);
+}
+
+async function genPolish() {
+  const content = document.getElementById('polishInput').value;
+  if (!content || content.length < 50) { alert('请输入需要润色的文章内容'); return; }
+  spin('polishSpinner', true);
+  document.getElementById('polishSection').style.display = 'none';
+  try {
+    const res = await callAPI(
+      `请对以下公众号文章进行润色，目标：${document.getElementById('polishGoal').value}\n\n原文：\n${content}\n\n要求：保留核心观点和框架，保持作者风格，不添加虚假案例，直接输出润色后的完整正文。`,
+      4000
+    );
+    document.getElementById('polishOutput').value = res;
+    document.getElementById('polishSection').style.display = 'block';
+  } catch(e) { alert('生成失败：' + e.message); }
+  spin('polishSpinner', false);
+}
+
+async function genTitles() {
+  const topic = document.getElementById('titleTopic').value;
+  if (!topic) { alert('请输入文章主题'); return; }
+  spin('titleSpinner', true);
+  document.getElementById('titlesSection').style.display = 'none';
+  try {
+    const res = await callAPI(
+      `为一篇公众号文章生成10个标题：\n主题：${topic}\n${document.getElementById('titleSummary').value ? '摘要：'+document.getElementById('titleSummary').value+'\n' : ''}风格：${document.getElementById('titleStyle').value}\n\n要求：每行一个，15-25字，有点击欲望，只输出标题，不要编号，不要说明。`,
+      600
+    );
+    const titles = res.split('\n').filter(l => l.trim()).slice(0, 10);
+    document.getElementById('titlesList').innerHTML = titles.map(t => {
+      const c = clean(t);
+      return `<div class="title-item" onclick="copyTitle('${c.replace(/'/g,"\\'").replace(/"/g,'&quot;')}', this)">
+        <span style="flex:1">${c}</span>
+        <button class="title-copy-btn">复制</button>
+      </div>`;
+    }).join('');
+    document.getElementById('titlesSection').style.display = 'block';
+  } catch(e) { alert('生成失败：' + e.message); }
+  spin('titleSpinner', false);
+}
+
+function copyTitle(text, el) {
+  navigator.clipboard.writeText(text).then(() => {
+    document.querySelectorAll('.title-item').forEach(e => e.classList.remove('selected'));
+    el.classList.add('selected');
+    toast();
+  });
+}
+</script>
+</body>
+</html>
